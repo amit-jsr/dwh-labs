@@ -1,4 +1,4 @@
-# dwh-labs
+# Data Warehouse - Labs
 
 Practical implementations of **Data Warehouse engineering patterns**, focused on **SCD Type-1, SCD Type-2**, dimensional modeling, and ETL workflows.
 

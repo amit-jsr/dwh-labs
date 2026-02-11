@@ -1,0 +1,7 @@
+customer_id,name,email,city,op,change_ts,created_at,updated_at
+2,Priya Patel,priya.patel@example.in,Gurgaon,U,2024-01-15 10:30:00,2024-01-01 09:15:00,2024-01-15 10:30:00
+5,Vikram Reddy,vikram.reddy@newmail.in,Hyderabad,U,2024-01-15 11:00:00,2024-01-01 10:00:00,2024-01-15 11:00:00
+8,Kavya Iyer,kavya.iyer@example.in,Mumbai,U,2024-01-15 12:15:00,2024-01-01 10:45:00,2024-01-15 12:15:00
+21,Manish Tiwari,manish.tiwari@example.in,Noida,I,2024-01-15 14:00:00,2024-01-15 14:00:00,2024-01-15 14:00:00
+22,Ritu Kapoor,ritu.kapoor@example.in,Ghaziabad,I,2024-01-15 14:30:00,2024-01-15 14:30:00,2024-01-15 14:30:00
+3,Rohan Gupta,rohan.gupta@example.in,Bangalore,D,2024-01-15 15:00:00,2024-01-01 09:30:00,2024-01-15 15:00:00

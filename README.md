@@ -38,7 +38,4 @@ python scd-type2.py   # History tracking with effective dates
 - **SCD1:** Overwrites data, no history preserved
 - **SCD2:** Preserves history by closing old records and inserting new versions
 
-## Author
-- Amit Jaiswar
-
 *Originally developed in Jan 2022*

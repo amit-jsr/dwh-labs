@@ -1,0 +1,9 @@
+customer_id,name,email,city,op,change_ts,created_at,updated_at
+10,Deepika Rao,deepika.rao@newmail.in,Kolkata,U,2024-01-20 09:00:00,2024-01-01 11:15:00,2024-01-20 09:00:00
+14,Neha Joshi,neha.joshi@example.in,Mumbai,U,2024-01-20 10:30:00,2024-01-01 12:15:00,2024-01-20 10:30:00
+21,Manish Tiwari,manish.tiwari@example.in,Greater Noida,U,2024-01-20 11:00:00,2024-01-15 14:00:00,2024-01-20 11:00:00
+23,Aditya Chatterjee,aditya.chatterjee@example.in,Howrah,I,2024-01-20 12:00:00,2024-01-20 12:00:00,2024-01-20 12:00:00
+24,Swati Mishra,swati.mishra@example.in,Varanasi,I,2024-01-20 13:00:00,2024-01-20 13:00:00,2024-01-20 13:00:00
+25,Gaurav Pandey,gaurav.pandey@example.in,Kanpur,I,2024-01-20 13:30:00,2024-01-20 13:30:00,2024-01-20 13:30:00
+11,Amit Kumar,amit.kumar@example.in,Lucknow,D,2024-01-20 14:00:00,2024-01-01 11:30:00,2024-01-20 14:00:00
+17,Rajesh Saxena,rajesh.saxena@example.in,Bhopal,D,2024-01-20 15:00:00,2024-01-01 13:00:00,2024-01-20 15:00:00

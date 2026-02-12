@@ -1,19 +1,46 @@
-# Data Warehouse - Lab
+# Data Warehouse - SCD1/SCD2
 
-Practical implementations of **Data Warehouse engineering patterns**, focused on **SCD Type-1, SCD Type-2**, dimensional modeling, and ETL workflows.
-
-## Scope
-
-* SCD-1 overwrite logic
-* SCD-2 history tracking
-* Dimension & fact modeling
-* Incremental ETL patterns
+Practical implementations of **SCD Type-1 & Type-2** patterns using DuckDB.
 
 ## Stack
 
-SQL • Python • PostgreSQL/Snowflake-style modeling
+SQL • Python • DuckDB
 
----
+## Project Structure
 
-**Author:** Amit Jaiswar
-Senior Data Scientist | GenAI | Data Engineering
+```
+dwh-labs/
+├── data/
+│   ├── source/customers.csv
+│   └── cdc/customers_cdc1.csv, customers_cdc2.csv
+├── database.py          # DDL and data loading
+├── scd-type1.py         # SCD Type 1 (overwrite)
+├── scd-type2.py         # SCD Type 2 (history tracking)
+├── test/test_scd.py     # Test suite
+└── requirements.txt
+```
+
+## Setup
+
+```bash
+python3 -m venv env && source env/bin/activate
+pip install -r requirements.txt
+```
+
+## Usage
+
+```bash
+python scd-type1.py   # Overwrite updates, hard deletes
+python scd-type2.py   # History tracking with effective dates
+```
+
+## Note
+- **SCD1:** Overwrites data, no history preserved
+- **SCD2:** Preserves history by closing old records and inserting new versions
+
+## Author
+- Amit Jaiswar
+
+## Project Timeline
+- Initial development: Jan 2022
+- Refactored and documented: 2026

@@ -41,6 +41,4 @@ python scd-type2.py   # History tracking with effective dates
 ## Author
 - Amit Jaiswar
 
-## Project Timeline
-- Initial development: Jan 2022
-- Refactored and documented: 2026
+*Originally developed in Jan 2022*

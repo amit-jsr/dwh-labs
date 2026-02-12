@@ -39,3 +39,8 @@ python scd-type2.py   # History tracking with effective dates
 - **SCD2:** Preserves history by closing old records and inserting new versions
 
 *Originally developed in Jan 2022*
+
+## Related Articles
+- [Data Warehouse Architecture Overview](https://www.techrxiv.org/users/791577/articles/1072655-data-warehouse-architecture-overview)
+- [Implementing SCD2 in Snowflake](https://medium.com/@amit-jsr/implementing-scd2-in-snowflake-slowly-changing-dimension-type-2-7ff793647150)
+- [Implementing SCD1 in Snowflake](https://medium.com/@amit-jsr/implementing-slowly-changing-dimension-type-1-scd1-in-snowflake-d2206ec3cc01)

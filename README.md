@@ -1,4 +1,4 @@
-# Data Warehouse - SCD1/SCD2
+# Data Warehouse Labs
 
 Practical implementations of **SCD Type-1 & Type-2** patterns using DuckDB.
 

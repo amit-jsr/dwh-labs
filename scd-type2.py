@@ -1,79 +1,90 @@
 """
-SCD Type 2 demo using in-memory DuckDB.
+SCD Type 2 using persistent DuckDB and set-based SQL.
 
 How it works:
-- Loads an initial full load from `data/source/source_customers.csv` into a type-2 target
-- Loads CDC from `data/cdc/cdc_customers.csv` into staging table
+- Connects to persistent database.
+- Loads CDC from `data/cdc/customers_cdc*.csv` into staging table
 - Applies CDC where operations I/U/D occur:
   - For updates (U): expires the current row (sets effective_to and is_current=false) and inserts a new row
   - For inserts (I): inserts a new current row
   - For deletes (D): expires the current row
 - Drops staging table after merge
 
-Notes: We use set-based SQL (UPDATE/INSERT) to implement SCD2. DuckDB is used in-memory.
+Notes: 
+    We use set-based SQL (UPDATE/INSERT) to implement SCD2. 
+    Initial data load is done by database.py.
 """
 
 import duckdb
 import os
-from datetime import datetime
-from database import scd2_ddl, scd2_stage_ddl
+from database import (
+    create_stage_tables,
+    load_cdc_to_stage,
+    drop_stage_tables,
+)
 
 
 def run_scd2():
     here = os.path.dirname(__file__)
     data_dir = os.path.join(here, "data")
-    source_csv = os.path.join(data_dir, "source", "source_customers.csv")
-    cdc_csv = os.path.join(data_dir, "cdc", "cdc_customers.csv")
+    cdc_folder = os.path.join(data_dir, "cdc")
 
-    con = duckdb.connect(database=':memory:')
+    # Connect to persistent database (already initialized with source data by database.py)
+    con = duckdb.connect(database='data/warehouse.duckdb')
 
-    # Create SCD2 target table using DDL from database.py
-    con.execute(scd2_ddl())
+    # Create staging table for CDC
+    create_stage_tables(con)
 
-    # Load initial source and insert as current records
-    con.execute(f"CREATE TEMP TABLE src AS SELECT * FROM read_csv_auto('{source_csv}')")
-    now = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
-    con.execute(
-        """
-        INSERT INTO scd2_target (customer_id, name, email, city, effective_from, effective_to, is_current)
-        SELECT customer_id, name, email, city, TIMESTAMP '2023-07-01 00:00:00', NULL, true FROM src
-        """
-    )
-
-    print("After initial SCD2 load:")
+    print("Before CDC (SCD2 target):")
     print(con.execute("SELECT * FROM scd2_target ORDER BY customer_id, effective_from").fetchdf())
 
-    # Create CDC staging table and load CDC data
-    con.execute(scd2_stage_ddl())
-    con.execute(f"INSERT INTO scd2_stage SELECT * FROM read_csv_auto('{cdc_csv}')")
+    # Load all CDC files into staging
+    load_cdc_to_stage(con, cdc_folder)
 
     print("\nCDC Stage table contents:")
-    print(con.execute("SELECT * FROM scd2_stage").fetchdf())
+    print(con.execute("SELECT * FROM cdc_stage ORDER BY change_ts").fetchdf())
 
     # Expire current rows for updates where values actually changed
     con.execute(
         """
         UPDATE scd2_target
-        SET effective_to = stg.change_ts, is_current = false
-        FROM (SELECT customer_id, name AS new_name, email AS new_email, city AS new_city, CAST(change_ts AS TIMESTAMP) as change_ts FROM scd2_stage WHERE op = 'U') stg
+        SET effective_to = stg.change_ts, is_current = false, updated_at = stg.change_ts
+        FROM (
+            SELECT customer_id, name AS new_name, email AS new_email, city AS new_city, 
+                   CAST(change_ts AS TIMESTAMP) as change_ts 
+            FROM cdc_stage WHERE op = 'U'
+        ) stg
         WHERE scd2_target.customer_id = stg.customer_id
-          AND scd2_target.is_current
-          AND (scd2_target.name IS DISTINCT FROM stg.new_name OR scd2_target.email IS DISTINCT FROM stg.new_email OR scd2_target.city IS DISTINCT FROM stg.new_city)
+          AND scd2_target.is_current = TRUE
+          AND (scd2_target.name IS DISTINCT FROM stg.new_name 
+               OR scd2_target.email IS DISTINCT FROM stg.new_email 
+               OR scd2_target.city IS DISTINCT FROM stg.new_city)
         """
     )
 
-    # Insert new versions for updates and inserts
+    # Insert new versions for updates (where row was expired)
     con.execute(
         """
-        INSERT INTO scd2_target (customer_id, name, email, city, effective_from, effective_to, is_current)
-        SELECT s.customer_id, s.name, s.email, s.city, CAST(s.change_ts AS TIMESTAMP), NULL, true
-        FROM scd2_stage s
-        LEFT JOIN scd2_target t ON t.customer_id = s.customer_id AND t.is_current
-        WHERE s.op IN ('I','U')
-          AND (
-                t.customer_id IS NULL
-                OR (t.customer_id IS NOT NULL AND (t.name IS DISTINCT FROM s.name OR t.email IS DISTINCT FROM s.email OR t.city IS DISTINCT FROM s.city))
-              )
+        INSERT INTO scd2_target (customer_id, name, email, city, effective_from, effective_to, is_current, created_at, updated_at)
+        SELECT s.customer_id, s.name, s.email, s.city, 
+               CAST(s.change_ts AS TIMESTAMP), NULL, TRUE, s.created_at, s.updated_at
+        FROM cdc_stage s
+        WHERE s.op = 'U'
+          AND NOT EXISTS (
+              SELECT 1 FROM scd2_target t 
+              WHERE t.customer_id = s.customer_id AND t.is_current = TRUE
+          )
+        """
+    )
+
+    # Handle inserts: insert new current rows
+    con.execute(
+        """
+        INSERT INTO scd2_target (customer_id, name, email, city, effective_from, effective_to, is_current, created_at, updated_at)
+        SELECT s.customer_id, s.name, s.email, s.city, 
+               CAST(s.change_ts AS TIMESTAMP), NULL, TRUE, s.created_at, s.updated_at
+        FROM cdc_stage s
+        WHERE s.op = 'I'
         """
     )
 
@@ -81,10 +92,13 @@ def run_scd2():
     con.execute(
         """
         UPDATE scd2_target
-        SET effective_to = stg.change_ts, is_current = false
-        FROM (SELECT customer_id, CAST(change_ts AS TIMESTAMP) as change_ts FROM scd2_stage WHERE op = 'D') stg
+        SET effective_to = stg.change_ts, is_current = false, updated_at = stg.change_ts
+        FROM (
+            SELECT customer_id, CAST(change_ts AS TIMESTAMP) as change_ts 
+            FROM cdc_stage WHERE op = 'D'
+        ) stg
         WHERE scd2_target.customer_id = stg.customer_id
-          AND scd2_target.is_current
+          AND scd2_target.is_current = TRUE
         """
     )
 
@@ -92,8 +106,11 @@ def run_scd2():
     print(con.execute("SELECT * FROM scd2_target ORDER BY customer_id, effective_from").fetchdf())
 
     # Drop staging table after merge
-    con.execute("DROP TABLE IF EXISTS scd2_stage")
-    print("\nStaging table dropped after merge.")
+    drop_stage_tables(con)
+    print("\nStaging table dropped.")
+
+    con.close()
+    print("SCD2 processing complete.")
 
 
 if __name__ == "__main__":

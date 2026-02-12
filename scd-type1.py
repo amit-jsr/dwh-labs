@@ -1,21 +1,21 @@
 """
-Simple SCD Type 1 demo using in-memory DuckDB and MERGE semantics.
+SCD Type 1 using persistent DuckDB and MERGE command.
 
 How it works:
-- Loads `data/source/source_customers.csv` as the source (full load)
-- Creates target table and performs initial load
+- Connects to persistent database.
 - Loads CDC from `data/cdc/cdc_*.csv` into staging table
 - Applies changes using MERGE (inserts/updates) and DELETE
 - Drops staging table after merge
 
-Notes: SCD1 semantics means we overwrite existing values on updates. We use MERGE for set-based operations. DuckDB is used in-memory."""
+Notes: 
+    We use MERGE for set-based operations. 
+    Initial data load is done by database.py.
+"""
 
 import duckdb
 import os
 from database import (
-    create_tables,
     create_stage_tables,
-    load_source_to_target,
     load_cdc_to_stage,
     drop_stage_tables,
 )
@@ -24,19 +24,15 @@ from database import (
 def run_scd1():
     here = os.path.dirname(__file__)
     data_dir = os.path.join(here, "data")
-    source_csv = os.path.join(data_dir, "source", "source_customers.csv")
     cdc_folder = os.path.join(data_dir, "cdc")
 
-    con = duckdb.connect(database=':memory:')
+    # Connect to persistent database (already initialized with source data by database.py)
+    con = duckdb.connect(database='data/warehouse.duckdb')
 
-    # Create target and staging tables
-    create_tables(con)
+    # Create staging table for CDC
     create_stage_tables(con)
 
-    # Load the initial source data into target
-    load_source_to_target(con, source_csv)
-
-    print("After initial load (SCD1 target):")
+    print("Before CDC (SCD1 target):")
     print(con.execute("SELECT * FROM scd1_target ORDER BY customer_id").fetchdf())
 
     # Load all CDC files into staging
@@ -80,9 +76,10 @@ def run_scd1():
 
     # Drop staging table after merge
     drop_stage_tables(con)
-    print("\nStaging table dropped after merge.")
+    print("\nStaging table dropped.")
 
-    return con
+    con.close()
+    print("SCD1 processing complete.")
 
 
 if __name__ == "__main__":

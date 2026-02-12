@@ -67,30 +67,37 @@ def create_stage_tables(conn: Any) -> None:
 def load_cdc_to_stage(conn: Any, cdc_folder: str = "data/cdc") -> int:
     """Load all CDC CSV files from folder into staging table.
 
-    Reads all cdc_*.csv files and inserts into cdc_stage.
+    Reads all customers_cdc*.csv files and inserts into cdc_stage.
+    Keeps only latest record per customer by change_ts.
     Returns the number of records loaded.
     """
-    cdc_files = sorted(glob.glob(f"{cdc_folder}/cdc_*.csv"))
+    cdc_files = sorted(glob.glob(f"{cdc_folder}/customers_cdc*.csv"))
 
     if not cdc_files:
-        print(f"No CDC files found in {cdc_folder}")
         return 0
 
-    total_records = 0
-    for cdc_file in cdc_files:
-        conn.execute(f"""
-            INSERT INTO cdc_stage 
-            SELECT * FROM read_csv_auto('{cdc_file}')
-        """)
-        count = conn.execute(f"SELECT COUNT(*) FROM read_csv_auto('{cdc_file}')").fetchone()[0]
-        total_records += count
-        print(f"Loaded {count} records from {cdc_file}")
+    # Build UNION ALL of all CDC files
+    file_queries = [f"SELECT * FROM read_csv_auto('{f}')" for f in cdc_files]
+    union_query = " UNION ALL ".join(file_queries)
 
-    print(f"Total CDC records loaded: {total_records}")
+    # Load with deduplication - keep only latest record per customer
+    conn.execute(f"""
+        INSERT INTO cdc_stage
+        SELECT customer_id, name, email, city, op, change_ts, created_at, updated_at
+        FROM (
+            SELECT *, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY change_ts DESC) as rn
+            FROM ({union_query})
+        )
+        WHERE rn = 1
+    """)
+
+    total_records = conn.execute("SELECT COUNT(*) FROM cdc_stage").fetchone()[0]
+    print(f"Loaded {total_records} CDC records")
+
     return total_records
 
 
-def load_source_to_target(conn: Any, source_file: str = "data/source/source_customers.csv") -> int:
+def load_source_to_target(conn: Any, source_file: str = "data/source/customers.csv") -> int:
     """Load initial source data into target tables.
 
     Returns the number of records loaded.
@@ -128,25 +135,28 @@ def drop_all_tables(conn: Any) -> None:
 
 
 if __name__ == "__main__":
-    # Quick smoke test when run directly
     import duckdb
 
-    con = duckdb.connect(database=':memory:')
-    
-    # Test table creation
+    con = duckdb.connect(database='data/warehouse.duckdb')
+
+    # Drop existing tables for clean start
+    drop_all_tables(con)
+    print("Dropped existing tables")
+
+    # Create target and staging tables
     create_tables(con)
     create_stage_tables(con)
-    print("✓ Created target and staging tables")
-    
-    # Verify tables exist
-    tables = con.execute("SHOW TABLES").fetchall()
-    print(f"✓ Tables created: {[t[0] for t in tables]}")
-    
-    # # Test cleanup
-    # drop_stage_tables(con)
-    # print("✓ Dropped staging tables")
-    
-    # drop_all_tables(con)
-    # print("✓ Dropped all tables")
-    
-    # print("\nSmoke test passed!")
+    print("Created target and staging tables")
+
+    # Load initial source data
+    source_csv = "data/source/customers.csv"
+    load_source_to_target(con, source_csv)
+
+    # Show record counts
+    scd1_count = con.execute("SELECT COUNT(*) FROM scd1_target").fetchone()[0]
+    scd2_count = con.execute("SELECT COUNT(*) FROM scd2_target").fetchone()[0]
+    print(f"SCD1 target: {scd1_count} records")
+    print(f"SCD2 target: {scd2_count} records")
+
+    con.close()
+    print("Database initialization complete.")

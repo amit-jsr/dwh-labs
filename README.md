@@ -1,4 +1,4 @@
-# Data Warehouse - Lab
+# Data Warehouse - SCD1/SCD2
 
 Practical implementations of **SCD Type-1 & Type-2** patterns using DuckDB.
 
@@ -11,12 +11,12 @@ SQL • Python • DuckDB
 ```
 dwh-labs/
 ├── data/
-│   ├── source/source_customers.csv
-│   └── cdc/cdc_1.csv, cdc_2.csv
+│   ├── source/customers.csv
+│   └── cdc/customers_cdc1.csv, customers_cdc2.csv
 ├── database.py          # DDL and data loading
 ├── scd-type1.py         # SCD Type 1 (overwrite)
 ├── scd-type2.py         # SCD Type 2 (history tracking)
-├── test_scd.py          # Test suite
+├── test/test_scd.py     # Test suite
 └── requirements.txt
 ```
 
@@ -32,17 +32,15 @@ pip install -r requirements.txt
 ```bash
 python scd-type1.py   # Overwrite updates, hard deletes
 python scd-type2.py   # History tracking with effective dates
-pytest test_scd.py -v # Run tests
 ```
 
-## SCD Type 1 vs Type 2
-
-| Aspect | Type 1 | Type 2 |
-|--------|--------|--------|
-| History | ❌ | ✅ |
-| Updates | Overwrite | Close old + insert new |
-| Deletes | Hard delete | Soft close |
+## Note
+- **SCD1:** Overwrites data, no history preserved
+- **SCD2:** Preserves history by closing old records and inserting new versions
 
 ## Author
+- Amit Jaiswar
 
-Amit Jaiswar
+## Project Timeline
+- Initial development: Jan 2022
+- Refactored and documented: 2026
